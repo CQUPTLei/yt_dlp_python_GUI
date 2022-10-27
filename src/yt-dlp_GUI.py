@@ -12,16 +12,16 @@ from tkinter import *
 from tkinter import filedialog
 import yt_dlp
 import threading
-
-
+import inspect
+import ctypes
+from multiprocessing import Process
 
 
 #默认参数
-global path
-global v_url
-global v_video_format
-global v_audio_format
-
+# global path
+# global v_url
+# global v_video_format
+# global v_audio_format
 
 v_url = 'https://www.youtube.com/watch?v=gg8su13TRkI&ab_channel=Kilun'
 v_video_format = 'bestvideo'  # 默认最高质量视频和音频，很多视频音频和视频是分开的，用ffmpeg自动合并
@@ -70,6 +70,8 @@ def url_input():
     v_url = v_url.replace('&', '"&"') #URL中&不可用于shell
 
 
+
+
 # 获取视频信息，并弹出一个窗口显示，单独线程（防止主窗口卡主）
 def get_info():
     global v_url
@@ -84,6 +86,8 @@ def get_info():
     return_code = subprocess.run(['yt-dlp', '-F', v_url], stdout=subprocess.PIPE) #调用shell，获取视频信息
     res = return_code.stdout.decode('utf-8')   #视频信息保存与res中
     info_txt.insert(END, res)  #显示该视频信息
+
+
 
 
 #选择视频保存路径，返回内容是字符串
@@ -120,6 +124,8 @@ def start_download():
         'proxy': '127.0.0.1:7890', #代理
         'format': Q,               #音视频质量
         'paths':{'home':path},     #保存路径
+        # 'username':'xxxxx',
+        # 'password':'xxxxxx',
 
         #----------------加强参数----------------------
         'extractor_retries':10,    #发生错误时最大重复次数
@@ -140,6 +146,26 @@ def start_download():
     #开始下载
     with yt_dlp.YoutubeDL(download_opts) as ydl:
         ydl.download([v_url])
+    log.insert(END,'----------------------------Complete dowbload this time----------------------------\n')
+
+
+#线程关闭函数
+def _async_raise(tid, exctype):
+    """raises the exception, performs cleanup if needed"""
+    tid = ctypes.c_long(tid)
+    if not inspect.isclass(exctype):
+        exctype = type(exctype)
+    res = ctypes.pythonapi.PyThreadState_SetAsyncExc(tid, ctypes.py_object(exctype))
+    if res == 0:
+        raise ValueError("invalid thread id")
+    elif res != 1:
+        # """if it returns a number greater than one, you're in trouble,
+        # and you should call it again with exc=NULL to revert the effect"""
+        ctypes.pythonapi.PyThreadState_SetAsyncExc(tid, None)
+        raise SystemError("PyThreadState_SetAsyncExc failed")
+def stop_thread(thread):
+    _async_raise(thread.ident, SystemExit)
+    print('Close sucess')
 
 
 
@@ -155,10 +181,13 @@ root.iconbitmap(default=r'icon\r14.ico')   # 更改窗口图标
 root.resizable(0, 0) # 设置窗口大小不可变
 
 
+
 #创建一个线程用于下载任务，避免窗口卡住，出现“未响应”情况
 thread1 = threading.Thread(name='t1',target= start_download)
 #显示视频格式信息的线程
 thread2 = threading.Thread(name='t2',target= get_info)
+# thread1=Process(target=start_download,args=(1,))
+# thread2=Process(target=get_info,args=(2,))
 
 #视频地址输入提示：
 tip_txt=Label(root,text='输入视频URL',font=("Roboto", 12),width=11,height=2)
@@ -172,6 +201,7 @@ btn0.place(x=655, rely=0, width=50, height=40)
 # 获取视频信息按钮（可选项目）
 btn1 = Button(root, text='获取视频信息', bg='#FFD39B',command=thread2.start)
 btn1.place(x=705, rely=0, width=85, height=40)
+
 
 
 #选择视频保存路径
@@ -220,4 +250,3 @@ log.insert(END,'----------------------------Hello，welcome to the video downloa
 
 root.mainloop()
 
-# log.insert(END,'----------------------------Complete dowbload this time----------------------------\n')
